@@ -1,8 +1,6 @@
 #about ipfs...
 import ipfshttpclient
 import pytorchipfs
-# import ipfsApi
-import ipfshttpclient
 
 #about torch...
 import torch
@@ -10,24 +8,22 @@ import torch.nn as nn
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
-
 from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader, Dataset
-
 #using numpy
 import numpy as np
-
 #for data load or save
 import pandas as pd
-
 #visualize some datasets
 import matplotlib.pyplot as plt
-
 #check our work directory
 import os
-
 #to unzip datasets
 import zipfile
+from PIL import Image
+import glob
+from sklearn.model_selection import train_test_split
+import random
 
 lr = 0.001 # learning_rate
 batch_size = 100 # we will use mini-batch method
@@ -40,101 +36,68 @@ if device =='cuda':
     torch.cuda.manual_seed_all(1234)
 
 
-#----------ipfs-----------
+#----------ipfs>>>>>>>>>>>>
 # hashes = [
 #     'QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF',
 #     'QmfYbXadCN3y7BAtPw4VUjb25MxWHMLJZV9vdHuaXDEfmG'
 # ]
-# hashes = [
-#     'bafkreic3aeripksj7a7pnvkiybq3i43hme6pxlmpx7jaokubpz2lfdrvti',
-#     'bafybeic7qbuo2ail2y5urbm5btfp7dwcxigjs4kq6m36ecbozaurt4z3te',
-#     'bafkreidcct7qpk3tadwtqmboncnmfouu674vusm4zhvuxcmf2n57wxeqfa'
-# ]
-
-# client = ipfshttpclient.connect()
-# ------CONNECT-----------------------------------
-# client.id()
-# Standard dataset
-# dataset = pytorchipfs.datasets.IPFSImageTensorDataset(
-#     client,
-#     '../input/dogs-vs-cats-redux-kernels-edition', # Where the files will be downloaded
-#     None, # Don't make assumptions about the image shape
-#     hashes
-# )
-# print(dataset)
-# api = ipfsApi.Client(host='http://127.0.0.1', port=5001)
-# print('1')
-# api.cat('QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF')
-# client.cat(api['QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF'])
-# api.get('QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF')
-# print('2')
-# api.get('QmfYbXadCN3y7BAtPw4VUjb25MxWHMLJZV9vdHuaXDEfmG')
-# print('3')
-#----------ipfs-----------
-# 11111111
-# api = ipfsapi.connect('127.0.0.1', 5001)
-# api = ipfsApi.Client(host='https://ipfs.infura.io', port=5001)
-# api.id()
-# print('1')
-# # api.cat('QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF')
-# api.cat('bafkreic3aeripksj7a7pnvkiybq3i43hme6pxlmpx7jaokubpz2lfdrvti')
-# # api.get('bafkreic3aeripksj7a7pnvkiybq3i43hme6pxlmpx7jaokubpz2lfdrvti')
-# print('2')
-
-#22222222
-
-
-
 client = ipfshttpclient.connect()
-f = open("test.zip", "wb")
-f.write(client.get('QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF'))
-f.close()
-# res = 
 
-
-
-
-#----------ipfs-----------
-
-os.listdir('../input/dogs-vs-cats-redux-kernels-edition')
-os.makedirs('../data', exist_ok=True)
 base_dir = '../input/dogs-vs-cats-redux-kernels-edition'
-train_dir = '../data/i_train'
-test_dir = '../data/i_test'
+train_dir = '../data/train'
+test_dir = '../data/test1'
 
-with zipfile.ZipFile(os.path.join(base_dir, 'i_train.zip')) as train_zip:
-    train_zip.extractall('../data')
+filepath = '../input/dogs-vs-cats-redux-kernels-edition/i_train.zip'
+if os.path.isfile(filepath):
+    print("Have training file. > Skip download from ipfs.")
+else:
+    i_train = 'QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF'
+    i_test = 'QmfYbXadCN3y7BAtPw4VUjb25MxWHMLJZV9vdHuaXDEfmG'
+    client.get(i_train)
+    cmd = 'mv ' + i_train + ' ../input/dogs-vs-cats-redux-kernels-edition/' + 'i_train'+ '.zip'
+    print(cmd)
+    os.system(cmd)
     
-with zipfile.ZipFile(os.path.join(base_dir, 'i_test.zip')) as test_zip:
-    test_zip.extractall('../data')
+    client.get(i_test)
+    cmd = 'mv ' + i_test + ' ../input/dogs-vs-cats-redux-kernels-edition/' + 'i_test'+ '.zip'
+    print(cmd)
+    os.system(cmd)
+    #<<<<<<<<<<<ipfs-----------
 
-os.listdir(train_dir)[:5]
+    os.listdir('../input/dogs-vs-cats-redux-kernels-edition')
+    os.makedirs('../data', exist_ok=True)
 
-import glob
+    with zipfile.ZipFile(os.path.join(base_dir, 'i_train.zip')) as train_zip:
+        train_zip.extractall('../data')
+    
+    with zipfile.ZipFile(os.path.join(base_dir, 'i_test.zip')) as test_zip:
+        test_zip.extractall('../data')
+
+    os.listdir(train_dir)[:5]
 
 train_list = glob.glob(os.path.join(train_dir,'*.jpg'))
 test_list = glob.glob(os.path.join(test_dir, '*.jpg'))
 len(train_list)
 
-from PIL import Image
-random_idx = np.random.randint(1,25000,size=10)
+# -------------SHOW DATA--------------
+# random_idx = np.random.randint(1,25000,size=10)
 
-fig = plt.figure()
-i=1
-for idx in random_idx:
-    ax = fig.add_subplot(2,5,i)
-    img = Image.open(train_list[idx])
-    plt.imshow(img)
-    i+=1
+# fig = plt.figure()
+# i=1
+# for idx in random_idx:
+#     ax = fig.add_subplot(2,5,i)
+#     img = Image.open(train_list[idx])
+#     plt.imshow(img)
+#     i+=1
 
-plt.axis('off')
-plt.show()
+# plt.axis('off')
+# plt.show()
+# -------------SHOW DATA--------------
 
 train_list[0].split('/')[-1].split('.')[0]
 int(test_list[0].split('/')[-1].split('.')[0])
 print(len(train_list), len(test_list))
 
-from sklearn.model_selection import train_test_split
 train_list, val_list = train_test_split(train_list, test_size=0.2)
 
 #data Augumentation
@@ -247,9 +210,10 @@ model.train()
 optimizer = optim.Adam(params = model.parameters(),lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-epochs = 10
+epochs = 10 #change to 1 for fast demo
 
 for epoch in range(epochs):
+    print('Training epoch: ' + str(epoch))
     epoch_loss = 0
     epoch_accuracy = 0
     
@@ -288,6 +252,20 @@ for epoch in range(epochs):
             
         print('Epoch : {}, val_accuracy : {}, val_loss : {}'.format(epoch+1, epoch_val_accuracy,epoch_val_loss))
 
+# Save the model and weight
+    checkpoint = str(epoch) + '_epoch.pt'
+    torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            }, checkpoint)
+
+torch.save(model, './model.pt')
+torch.save(model.state_dict(), './model_state_dict.pt')
+print('Save the model.')
+
+
 dog_probs = []
 model.eval()
 with torch.no_grad():
@@ -308,8 +286,6 @@ submission
 submission.to_csv('result.csv',index=False)
 
 # Check model performance and visualize some data
-import random
-
 id_list = []
 class_ = {0: 'cat', 1: 'dog'}
 
