@@ -1,86 +1,55 @@
-#about ipfs...
-import ipfshttpclient
-import pytorchipfs
-
 #about torch...
 import torch
 import torch.nn as nn
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
+
 from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader, Dataset
+
 #using numpy
 import numpy as np
+
 #for data load or save
 import pandas as pd
+
 #visualize some datasets
 import matplotlib.pyplot as plt
+
 #check our work directory
 import os
+
 #to unzip datasets
 import zipfile
-from PIL import Image
-import glob
-from sklearn.model_selection import train_test_split
-import random
-from datetime import datetime
+
 
 lr = 0.001 # learning_rate
 batch_size = 100 # we will use mini-batch method
 epochs = 10 # How much to train a model
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
+
 torch.manual_seed(1234)
 if device =='cuda':
     torch.cuda.manual_seed_all(1234)
 
-
-#----------ipfs>>>>>>>>>>>>
-# hashes = [
-#     'QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF',
-#     'QmfYbXadCN3y7BAtPw4VUjb25MxWHMLJZV9vdHuaXDEfmG'
-# ]
-client = ipfshttpclient.connect()
+# os.listdir('../input/dogs-vs-cats-redux-kernels-edition')
 
 base_dir = '../input/dogs-vs-cats-redux-kernels-edition'
 train_dir = '../data/train'
 test_dir = '../data/test1'
 
-filepath = '../input/dogs-vs-cats-redux-kernels-edition/i_train.zip'
-if os.path.isfile(filepath):
-    print("Have training file. > Skip download from ipfs.")
-else:
-    i_train = 'QmVdDq3F4vwhZ3VYshnTfySDMKLQqVbv92TpojBKK7DViF'
-    i_test = 'QmfYbXadCN3y7BAtPw4VUjb25MxWHMLJZV9vdHuaXDEfmG'
-    client.get(i_train)
-    cmd = 'mv ' + i_train + ' ../input/dogs-vs-cats-redux-kernels-edition/' + 'i_train'+ '.zip'
-    print(cmd)
-    os.system(cmd)
-    
-    client.get(i_test)
-    cmd = 'mv ' + i_test + ' ../input/dogs-vs-cats-redux-kernels-edition/' + 'i_test'+ '.zip'
-    print(cmd)
-    os.system(cmd)
-    #<<<<<<<<<<<ipfs-----------
+# os.listdir(train_dir)[:5]
 
-    os.listdir('../input/dogs-vs-cats-redux-kernels-edition')
-    os.makedirs('../data', exist_ok=True)
-
-    with zipfile.ZipFile(os.path.join(base_dir, 'i_train.zip')) as train_zip:
-        train_zip.extractall('../data')
-    
-    with zipfile.ZipFile(os.path.join(base_dir, 'i_test.zip')) as test_zip:
-        test_zip.extractall('../data')
-
-    os.listdir(train_dir)[:5]
+import glob
 
 train_list = glob.glob(os.path.join(train_dir,'*.jpg'))
 test_list = glob.glob(os.path.join(test_dir, '*.jpg'))
 len(train_list)
 
-# -------------SHOW DATA--------------
+# --------CHECK DATA----------
+from PIL import Image
 # random_idx = np.random.randint(1,25000,size=10)
 
 # fig = plt.figure()
@@ -93,12 +62,10 @@ len(train_list)
 
 # plt.axis('off')
 # plt.show()
-# -------------SHOW DATA--------------
-
 train_list[0].split('/')[-1].split('.')[0]
 int(test_list[0].split('/')[-1].split('.')[0])
-print(len(train_list), len(test_list))
 
+from sklearn.model_selection import train_test_split
 train_list, val_list = train_test_split(train_list, test_size=0.2)
 
 #data Augumentation
@@ -115,6 +82,7 @@ val_transforms = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
+
 
 test_transforms = transforms.Compose([   
     transforms.Resize((224, 224)),
@@ -148,6 +116,7 @@ class dataset(torch.utils.data.Dataset):
             label=0
             
         return img_transformed,label
+        
 
 train_data = dataset(train_list, transform=train_transforms)
 test_data = dataset(test_list, transform=test_transforms)
@@ -156,12 +125,6 @@ val_data = dataset(val_list, transform=test_transforms)
 train_loader = torch.utils.data.DataLoader(dataset = train_data, batch_size=batch_size, shuffle=True )
 test_loader = torch.utils.data.DataLoader(dataset = test_data, batch_size=batch_size, shuffle=True)
 val_loader = torch.utils.data.DataLoader(dataset = val_data, batch_size=batch_size, shuffle=True)
-
-print(len(train_data), len(train_loader))
-print(len(val_data), len(val_loader))
-
-#check our images shape
-train_data[0][0].shape
 
 class Cnn(nn.Module):
     def __init__(self):
@@ -205,76 +168,50 @@ class Cnn(nn.Module):
         return out
 
 model = Cnn().to(device)
-model.train()
 
 optimizer = optim.Adam(params = model.parameters(),lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-epochs = 1 #change to 1 for fast demo
-
-for epoch in range(epochs):
-    print('Training epoch: ' + str(epoch))
-    epoch_loss = 0
-    epoch_accuracy = 0
-    
-    for data, label in train_loader:
+model = torch.load('model.pt')
+dog_probs = []
+model.eval()
+with torch.no_grad():
+    for data, fileid in test_loader:
         data = data.to(device)
-        label = label.to(device)
-        
-        output = model(data)
-        loss = criterion(output, label)
-        
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        acc = ((output.argmax(dim=1) == label).float().mean())
-        epoch_accuracy += acc/len(train_loader)
-        epoch_loss += loss/len(train_loader)
-        
-    print('Epoch : {}, train accuracy : {}, train loss : {}'.format(epoch+1, epoch_accuracy,epoch_loss))
+        preds = model(data)
+        preds_list = F.softmax(preds, dim=1)[:, 1].tolist()
+        dog_probs += list(zip(list(fileid), preds_list))
+
+# dog_probs.sort(key = lambda x : int(x[0]))
+# dog_probs
+
+idx = list(map(lambda x: x[0],dog_probs))
+prob = list(map(lambda x: x[1],dog_probs))
+
+submission = pd.DataFrame({'id':idx,'label':prob})
+submission
+
+submission.to_csv('result.csv',index=False)
+
+import random
+
+id_list = []
+class_ = {0: 'cat', 1: 'dog'}
+
+fig, axes = plt.subplots(2, 5, figsize=(20, 12), facecolor='w')
+
+for ax in axes.ravel():
     
+    i = random.choice(submission['id'].values)
     
-    with torch.no_grad():
-        epoch_val_accuracy=0
-        epoch_val_loss =0
-        for data, label in val_loader:
-            data = data.to(device)
-            label = label.to(device)
-            
-            val_output = model(data)
-            val_loss = criterion(val_output,label)
-            
-            
-            acc = ((val_output.argmax(dim=1) == label).float().mean())
-            epoch_val_accuracy += acc/ len(val_loader)
-            epoch_val_loss += val_loss/ len(val_loader)
-            
-        print('Epoch : {}, val_accuracy : {}, val_loss : {}'.format(epoch+1, epoch_val_accuracy,epoch_val_loss))
-
-# Save the model and weight
-    checkpoint = str(epoch) + '_epoch.pt'
-    torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
-            }, checkpoint)
-
-torch.save(model, './model.pt')
-torch.save(model.state_dict(), './model_state_dict.pt')
-print('Save the model.')
-
-
-#-----------log file--------------
-path = 'ipfs.log'
-f = open(path, 'a')
-
-current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-f.write(current_time)
-print(current_time)
-
-#-----------add model to ipfs----------
-res = client.add('model.pt')
-print(res)
-f.write(str(res))
+    label = submission.loc[submission['id'] == i, 'label'].values[0]
+    if label > 0.5:
+        label = 1
+    else:
+        label = 0
+        
+    img_path = os.path.join(test_dir, '{}.jpg'.format(i))
+    img = Image.open(img_path)
+    
+    ax.set_title(class_[label])
+    ax.imshow(img)
